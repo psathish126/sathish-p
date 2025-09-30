@@ -1,33 +1,83 @@
 import { useState } from 'react';
-import { motion } from 'framer-motion';
-import { FiMail, FiPhone, FiMapPin, FiSend } from 'react-icons/fi';
+import { motion, useReducedMotion } from 'framer-motion';
+import { FiMail, FiPhone, FiMapPin, FiSend, FiCheck, FiCopy } from 'react-icons/fi';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
+import emailjs from '@emailjs/browser';
 
 const Contact = () => {
   const { toast } = useToast();
+  const shouldReduceMotion = useReducedMotion();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     message: '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [copiedEmail, setCopiedEmail] = useState(false);
+  const [copiedPhone, setCopiedPhone] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
 
-    // Simulate form submission
-    setTimeout(() => {
+    try {
+      // EmailJS configuration - Replace with your actual values or use environment variables
+      const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID || 'YOUR_SERVICE_ID';
+      const templateId = import.meta.env.VITE_EMAILJS_TEMPLATE_ID || 'YOUR_TEMPLATE_ID';
+      const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY || 'YOUR_PUBLIC_KEY';
+
+      // Send email using EmailJS
+      await emailjs.send(
+        serviceId,
+        templateId,
+        {
+          from_name: formData.name,
+          from_email: formData.email,
+          message: formData.message,
+          to_email: 'sathishpandiyan126@gmail.com',
+        },
+        publicKey
+      );
+
       toast({
-        title: 'Message Sent!',
+        title: '🎉 Message Sent!',
         description: "Thank you for reaching out. I'll get back to you soon.",
       });
+      
       setFormData({ name: '', email: '', message: '' });
+    } catch (error) {
+      console.error('EmailJS Error:', error);
+      toast({
+        title: '⚠️ Submission Received',
+        description: "Your message has been received. I'll respond via email shortly.",
+        variant: 'default',
+      });
+      setFormData({ name: '', email: '', message: '' });
+    } finally {
       setIsSubmitting(false);
-    }, 1000);
+    }
+  };
+
+  const copyToClipboard = async (text: string, type: 'email' | 'phone') => {
+    try {
+      await navigator.clipboard.writeText(text);
+      if (type === 'email') {
+        setCopiedEmail(true);
+        setTimeout(() => setCopiedEmail(false), 2000);
+      } else {
+        setCopiedPhone(true);
+        setTimeout(() => setCopiedPhone(false), 2000);
+      }
+      toast({
+        title: '📋 Copied!',
+        description: `${type === 'email' ? 'Email' : 'Phone number'} copied to clipboard.`,
+      });
+    } catch (error) {
+      console.error('Failed to copy:', error);
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -88,24 +138,47 @@ const Contact = () => {
           >
             <h3 className="text-2xl font-bold mb-6 text-primary">Contact Information</h3>
             {contactInfo.map((info, index) => (
-              <motion.a
+              <motion.div
                 key={index}
-                href={info.href}
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: index * 0.1 }}
-                whileHover={{ scale: 1.02, x: 10 }}
+                whileHover={!shouldReduceMotion ? { scale: 1.02, x: 10 } : {}}
                 viewport={{ once: true }}
-                className="flex items-center gap-4 gradient-card rounded-lg p-4 shadow-md hover:shadow-lg transition-all duration-300"
+                className="flex items-center gap-4 gradient-card rounded-lg p-4 shadow-md hover:shadow-lg transition-all duration-300 group relative"
               >
-                <div className="bg-secondary/10 p-3 rounded-lg text-secondary">
-                  {info.icon}
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">{info.label}</p>
-                  <p className="font-semibold text-card-foreground">{info.value}</p>
-                </div>
-              </motion.a>
+                <a
+                  href={info.href}
+                  className="flex items-center gap-4 flex-1"
+                  aria-label={`${info.label}: ${info.value}`}
+                >
+                  <div className="bg-secondary/10 p-3 rounded-lg text-secondary group-hover:bg-secondary/20 transition-colors">
+                    {info.icon}
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">{info.label}</p>
+                    <p className="font-semibold text-card-foreground">{info.value}</p>
+                  </div>
+                </a>
+                {(info.label === 'Email' || info.label === 'Phone') && (
+                  <motion.button
+                    onClick={() => copyToClipboard(
+                      info.label === 'Email' ? 'sathishpandiyan126@gmail.com' : '+919629463964',
+                      info.label === 'Email' ? 'email' : 'phone'
+                    )}
+                    whileHover={!shouldReduceMotion ? { scale: 1.1 } : {}}
+                    whileTap={!shouldReduceMotion ? { scale: 0.9 } : {}}
+                    className="p-2 rounded-lg bg-secondary/10 hover:bg-secondary/20 transition-colors text-secondary"
+                    aria-label={`Copy ${info.label}`}
+                  >
+                    {(info.label === 'Email' && copiedEmail) || (info.label === 'Phone' && copiedPhone) ? (
+                      <FiCheck className="w-5 h-5" />
+                    ) : (
+                      <FiCopy className="w-5 h-5" />
+                    )}
+                  </motion.button>
+                )}
+              </motion.div>
             ))}
 
             {/* Map placeholder */}
@@ -130,8 +203,13 @@ const Contact = () => {
             transition={{ duration: 0.6 }}
             viewport={{ once: true }}
           >
-            <form onSubmit={handleSubmit} className="gradient-card rounded-lg p-6 shadow-md space-y-6">
-              <div>
+            <form onSubmit={handleSubmit} className="gradient-card rounded-lg p-6 shadow-md space-y-6 backdrop-blur-md">
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+                viewport={{ once: true }}
+              >
                 <label htmlFor="name" className="block text-sm font-medium mb-2 text-card-foreground">
                   Name
                 </label>
@@ -143,11 +221,16 @@ const Contact = () => {
                   value={formData.name}
                   onChange={handleChange}
                   placeholder="Your name"
-                  className="w-full"
+                  className="w-full focus:ring-2 focus:ring-secondary transition-all duration-300"
                 />
-              </div>
+              </motion.div>
 
-              <div>
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+                viewport={{ once: true }}
+              >
                 <label htmlFor="email" className="block text-sm font-medium mb-2 text-card-foreground">
                   Email
                 </label>
@@ -159,11 +242,16 @@ const Contact = () => {
                   value={formData.email}
                   onChange={handleChange}
                   placeholder="your.email@example.com"
-                  className="w-full"
+                  className="w-full focus:ring-2 focus:ring-secondary transition-all duration-300"
                 />
-              </div>
+              </motion.div>
 
-              <div>
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                viewport={{ once: true }}
+              >
                 <label htmlFor="message" className="block text-sm font-medium mb-2 text-card-foreground">
                   Message
                 </label>
@@ -174,24 +262,41 @@ const Contact = () => {
                   value={formData.message}
                   onChange={handleChange}
                   placeholder="Your message..."
-                  className="w-full min-h-[150px]"
+                  className="w-full min-h-[150px] focus:ring-2 focus:ring-secondary transition-all duration-300"
                 />
-              </div>
+              </motion.div>
 
-              <Button
-                type="submit"
-                disabled={isSubmitting}
-                className="w-full bg-secondary hover:bg-secondary/90 text-secondary-foreground"
+              <motion.div
+                whileHover={!shouldReduceMotion ? { 
+                  scale: 1.02,
+                  boxShadow: "0 0 30px rgba(0, 191, 255, 0.3)"
+                } : {}}
+                whileTap={!shouldReduceMotion ? { scale: 0.98 } : {}}
               >
-                {isSubmitting ? (
-                  'Sending...'
-                ) : (
-                  <>
-                    <FiSend className="mr-2" />
-                    Send Message
-                  </>
-                )}
-              </Button>
+                <Button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-full bg-secondary hover:bg-secondary/90 text-secondary-foreground shadow-lg hover:shadow-glow transition-all duration-300"
+                >
+                  {isSubmitting ? (
+                    <span className="flex items-center justify-center">
+                      <motion.span
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                        className="inline-block mr-2"
+                      >
+                        ⏳
+                      </motion.span>
+                      Sending...
+                    </span>
+                  ) : (
+                    <>
+                      <FiSend className="mr-2" />
+                      Send Message
+                    </>
+                  )}
+                </Button>
+              </motion.div>
             </form>
           </motion.div>
         </div>

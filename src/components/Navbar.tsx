@@ -1,12 +1,18 @@
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { FiMenu, FiX, FiSun, FiMoon } from 'react-icons/fi';
 import { Button } from '@/components/ui/button';
 
 const Navbar = () => {
+  const shouldReduceMotion = useReducedMotion();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isDark, setIsDark] = useState(false);
+  const [isDark, setIsDark] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('theme') === 'dark';
+    }
+    return false;
+  });
 
   useEffect(() => {
     const handleScroll = () => {
@@ -19,8 +25,10 @@ const Navbar = () => {
   useEffect(() => {
     if (isDark) {
       document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
     } else {
       document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
     }
   }, [isDark]);
 
@@ -49,8 +57,8 @@ const Navbar = () => {
       transition={{ duration: 0.5 }}
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
         isScrolled
-          ? 'bg-background/95 backdrop-blur-md shadow-md'
-          : 'bg-transparent'
+          ? 'bg-background/80 backdrop-blur-md shadow-lg'
+          : 'bg-background/50 backdrop-blur-sm'
       }`}
     >
       <div className="container mx-auto px-4 py-4">
@@ -68,13 +76,19 @@ const Navbar = () => {
             {navLinks.map((link) => (
               <motion.button
                 key={link.name}
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.95 }}
+                whileHover={!shouldReduceMotion ? { scale: 1.1 } : {}}
+                whileTap={!shouldReduceMotion ? { scale: 0.95 } : {}}
                 onClick={() => scrollToSection(link.href)}
                 className="text-foreground hover:text-secondary transition-colors relative group"
+                aria-label={`Navigate to ${link.name} section`}
               >
                 {link.name}
-                <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-secondary transition-all duration-300 group-hover:w-full" />
+                <motion.span 
+                  className="absolute bottom-0 left-0 h-0.5 bg-secondary"
+                  initial={{ width: 0 }}
+                  whileHover={{ width: "100%" }}
+                  transition={{ duration: 0.3 }}
+                />
               </motion.button>
             ))}
             <Button
